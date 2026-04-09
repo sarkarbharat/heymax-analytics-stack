@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+target/
+dbt_packages/
+logs/
+*.log
+.DS_Store
+.env
+secrets/
+*.sqlite

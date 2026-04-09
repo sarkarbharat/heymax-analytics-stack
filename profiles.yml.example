@@ -1,0 +1,13 @@
+heymax_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: your-gcp-project
+      dataset: heymax_analytics
+      keyfile: /absolute/path/to/service_account.json
+      location: asia-southeast1
+      priority: interactive
+      threads: 4
+      timeout_seconds: 300

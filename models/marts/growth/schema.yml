@@ -1,0 +1,46 @@
+version: 2
+
+models:
+  - name: int_user_period_activity
+    description: User-level activity flags by period grain for growth accounting logic.
+    columns:
+      - name: period_grain
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['daily', 'weekly', 'monthly']
+              quote: true
+      - name: period_start
+        tests:
+          - not_null
+      - name: user_id
+        tests:
+          - not_null
+
+  - name: fct_growth_accounting
+    description: Aggregated growth accounting metrics by grain and period.
+    columns:
+      - name: period_grain
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['daily', 'weekly', 'monthly']
+              quote: true
+      - name: period_start
+        tests:
+          - not_null
+      - name: active_users
+        tests:
+          - not_null
+      - name: new_users
+        tests:
+          - not_null
+      - name: retained_users
+        tests:
+          - not_null
+      - name: resurrected_users
+        tests:
+          - not_null
+      - name: churned_users
+        tests:
+          - not_null

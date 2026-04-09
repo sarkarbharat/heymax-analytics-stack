@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_events
+    description: Standardized event records at event-level grain.
+    columns:
+      - name: event_id
+        description: Deterministic hash-based identifier for each event row.
+        tests:
+          - not_null
+          - unique
+      - name: event_time_utc
+        tests:
+          - not_null
+      - name: user_id
+        tests:
+          - not_null
+      - name: event_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['miles_earned', 'miles_redeemed', 'like', 'share']
+              quote: true
+      - name: platform
+        tests:
+          - accepted_values:
+              values: ['ios', 'android', 'web']
+              quote: true
+      - name: country
+        tests:
+          - not_null

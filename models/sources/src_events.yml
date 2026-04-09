@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ env_var('GCP_PROJECT') }}"
+    schema: "{{ env_var('BQ_DATASET', 'heymax_analytics_raw') }}"
+    tables:
+      - name: events
+        description: Raw event stream loaded from CSV.
+        loaded_at_field: loaded_at
+        columns:
+          - name: event_time
+            tests:
+              - not_null
+          - name: user_id
+            tests:
+              - not_null

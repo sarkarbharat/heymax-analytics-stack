@@ -1,0 +1,7 @@
+dbt-bigquery>=1.8.0
+pandas>=2.2.0
+google-cloud-bigquery>=3.25.0
+pyarrow>=17.0.0
+jupyter>=1.0.0
+matplotlib>=3.9.0
+seaborn>=0.13.0

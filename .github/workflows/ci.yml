@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  dbt-compile-and-test:
+    runs-on: ubuntu-latest
+    env:
+      DBT_PROFILES_DIR: .
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      BQ_DATASET: ${{ secrets.BQ_DATASET }}
+      BQ_TABLE: events
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create service account key
+        if: ${{ secrets.GCP_SA_KEY != '' }}
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > sa.json
+
+      - name: Write dbt profile
+        run: |
+          cat > profiles.yml <<'EOF'
+          heymax_analytics:
+            target: dev
+            outputs:
+              dev:
+                type: bigquery
+                method: service-account
+                project: ${GCP_PROJECT}
+                dataset: ${BQ_DATASET}
+                keyfile: sa.json
+                location: asia-southeast1
+                priority: interactive
+                threads: 4
+                timeout_seconds: 300
+          EOF
+
+      - name: dbt deps
+        run: dbt deps --profiles-dir "${DBT_PROFILES_DIR}" || true
+
+      - name: dbt compile
+        run: dbt compile --profiles-dir "${DBT_PROFILES_DIR}"
+
+      - name: dbt test
+        run: dbt test --profiles-dir "${DBT_PROFILES_DIR}"

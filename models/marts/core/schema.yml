@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: dim_users
+    description: User dimension keyed by natural user_id and surrogate user_sk.
+    columns:
+      - name: user_sk
+        tests:
+          - not_null
+          - unique
+      - name: user_id
+        tests:
+          - not_null
+          - unique
+      - name: first_event_time_utc
+        tests:
+          - not_null
+
+  - name: fct_events
+    description: Event fact table at event-level grain.
+    columns:
+      - name: event_id
+        tests:
+          - not_null
+          - unique
+      - name: user_sk
+        tests:
+          - not_null
+      - name: user_id
+        tests:
+          - not_null
+      - name: event_time_utc
+        tests:
+          - not_null
