@@ -160,6 +160,7 @@ Run:
 docker run --rm \
   -e GCP_PROJECT="your-gcp-project" \
   -e BQ_DATASET="heymax_analytics_raw" \
+  -e DBT_TARGET_DATASET="heymax_analytics" \
   -e GCP_SA_KEY="$(cat /path/to/sa.json)" \
   -e CSV_PATH="/app/data/event_stream.csv" \
   -e EXECUTION_DATE="2025-02-20 23:59:59" \
@@ -172,6 +173,7 @@ Notes:
 
 - Default expectation is a repo file at `data/event_stream.csv` (mounted in image as `/app/data/event_stream.csv`).
 - You can still override with `CSV_URL` as a fallback if you do not want to commit CSV.
+- `BQ_DATASET` is used as source/raw dataset; `DBT_TARGET_DATASET` is used for dbt model outputs.
 - If `USE_CURRENT_EXECUTION_TS=true` and `EXECUTION_DATE` is empty, runtime uses current UTC timestamp.
 - Container entrypoint writes `profiles.yml` from env vars and runs `scripts/run_pipeline.sh`.
 
@@ -354,12 +356,13 @@ CI image publishing workflow: `.github/workflows/ci.yml`
 Required GitHub secrets for this workflow:
 
 - `GCP_PROJECT`
-- `BQ_DATASET`
+- `BQ_DATASET` (source/raw dataset, e.g. `heymax_analytics_raw`)
 - `GCP_SA_KEY` (JSON key content)
 
 Recommended repository variable:
 
 - `BQ_LOCATION` (for example `asia-southeast1`, `US`, `EU`) so CI/runtime use the correct BigQuery location.
+- `DBT_TARGET_DATASET` (for example `heymax_analytics`) so dbt outputs land in `heymax_analytics_stg` / `heymax_analytics_mart`.
 
 If CSV is committed at `data/event_stream.csv`, no extra CSV secret is required.
 

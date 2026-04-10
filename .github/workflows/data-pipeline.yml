@@ -37,6 +37,7 @@ jobs:
       GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
       BQ_DATASET: ${{ secrets.BQ_DATASET }}
       BQ_TABLE: events
+      DBT_TARGET_DATASET: ${{ vars.DBT_TARGET_DATASET }}
       DBT_LOCATION: ${{ vars.BQ_LOCATION }}
       DBT_THREADS: 4
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -71,6 +72,7 @@ jobs:
             -e GCP_PROJECT \
             -e BQ_DATASET \
             -e BQ_TABLE \
+            -e DBT_TARGET_DATASET \
             -e DBT_LOCATION \
             -e DBT_THREADS \
             -e GCP_SA_KEY \

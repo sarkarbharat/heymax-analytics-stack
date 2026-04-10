@@ -29,6 +29,10 @@ if [[ -z "${DBT_THREADS:-}" ]]; then
   export DBT_THREADS="4"
 fi
 
+if [[ -z "${DBT_TARGET_DATASET:-}" ]]; then
+  export DBT_TARGET_DATASET="heymax_analytics"
+fi
+
 if [[ -z "${CSV_PATH:-}" ]]; then
   export CSV_PATH="/app/data/event_stream.csv"
 fi
@@ -51,7 +55,7 @@ heymax_analytics:
       type: bigquery
       method: service-account
       project: ${GCP_PROJECT}
-      dataset: ${BQ_DATASET}
+      dataset: ${DBT_TARGET_DATASET}
       keyfile: /app/sa.json
       location: ${DBT_LOCATION}
       priority: interactive
