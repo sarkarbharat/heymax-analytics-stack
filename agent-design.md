@@ -1,83 +1,81 @@
-# AI Agentic Systems Design
+ # Data Documentation Agent Design (dbt Column Docs)
 
-## Objective
+## Goal
 
-Design an AI-assisted analytics copilot that helps internal teams answer metric questions, draft analysis queries, and detect data quality anomalies without allowing unsafe autonomous actions.
+Build an agent that keeps `schema.yml` column descriptions accurate as dbt models evolve, while preventing silent low-quality updates. The agent operates in suggestion mode by default and is optimized for pull-request workflows.
 
-## 1) Agent Scope
+## A) Agent Architecture
 
-- In scope:
-  - Convert business questions into SQL drafts against approved marts.
-  - Explain metric definitions and caveats from documented contracts.
-  - Flag anomalies from monitored metric thresholds.
-- Out of scope:
-  - Writing directly to production tables.
-  - Auto-approving schema migrations.
-  - Sending external customer communications.
+**Triggering**
+- Primary trigger: GitHub PR events when files under `models/**/*.sql` or `models/**/schema.yml` change.
+- Secondary trigger: nightly drift scan to detect undocumented new columns from recent model changes.
 
-## 2) Architecture
+**Inputs**
+- Git diff (changed models and changed columns).
+- dbt metadata (`manifest.json`, `catalog.json`, and compiled SQL).
+- Existing documentation in `schema.yml`.
+- Warehouse metadata for lightweight profiling (type, null ratio, cardinality buckets).
+- Historical accepted descriptions (internal memory store keyed by `model.column`).
 
-- **Planner/Router**: classifies request type (definition lookup, SQL generation, anomaly triage).
-- **Tooling layer**:
-  - metadata retriever (dbt docs + model catalog)
-  - query runner (read-only warehouse role)
-  - test status fetcher (latest dbt test outcomes)
-- **Policy guardrail**:
-  - deny non-read-only actions
-  - deny queries against unapproved schemas
-  - enforce result row limits for chat responses
-- **Response synthesizer**: returns answer with cited models and confidence notes.
+**Tool/API sequence**
+1. `ChangeDetector`: map SQL/YAML changes to impacted models.
+2. `ColumnExtractor`: parse compiled SQL and catalog to list current columns and lineage hints.
+3. `DocRetriever`: fetch existing descriptions and prior accepted wording.
+4. `DocGenerator`: draft description, business meaning, and assumptions per changed/new column.
+5. `QualityGate`: run deterministic checks (non-empty, no tautologies, naming consistency, banned vague phrases).
+6. `PRPublisher`: post suggestions as PR comments or a bot commit against the same branch.
 
-## 3) Human-in-the-Loop Design
+**Unseen vs seen models**
+- **Unseen model:** generate full model summary and all column descriptions.
+- **Seen model:** generate only diffs for new, removed, or semantically changed columns to minimize review noise.
 
-- Required approvals:
-  - Any query that can incur high cost (estimated scan above threshold).
-  - Any change request impacting metric definitions.
-  - Any incident status update that affects business reporting.
-- Analyst review queue:
-  - SQL drafts above complexity threshold.
-  - ambiguous requests with missing business context.
-- Escalation:
-  - If confidence below threshold, route to data team with context packet.
+## B) Human-in-the-Loop Design
 
-## 4) Failure Modes and Observability
+- The agent **never auto-merges** documentation to `main`.
+- All changes are surfaced in PR as inline suggestions plus a compact summary table (`column`, `old_desc`, `new_desc`, `confidence`).
+- Mandatory reviewer approval for high-risk columns (PII-like fields, finance metrics, and externally consumed fields).
+- Confidence policy:
+  - high confidence + low-risk -> suggestion only.
+  - low confidence or high-risk -> required data reviewer sign-off.
+- Rejected suggestions are stored as negative examples to improve future prompts and reduce repeat errors.
 
-### Failure Modes
+## C) Failure Modes and Observability
 
-- Hallucinated columns/tables from stale context.
-- Incorrect metric interpretation (especially resurrected/churned logic).
-- Expensive queries due to poor predicate pushdown.
-- Partial outage from warehouse/API latency spikes.
+1. **Semantic drift after SQL changes**  
+   - Risk: description still reflects old logic.  
+   - Detection: compare SQL lineage signatures between base and head; force regeneration when lineage changes.  
+   - Alert: drift mismatch rate above threshold over rolling 7 days.
 
-### Detection
+2. **Stale metadata context**  
+   - Risk: agent references dropped/renamed columns.  
+   - Detection: validate generated docs against current `catalog.json` and compile artifacts in CI.  
+   - Alert: validation failures per run and consecutive stale-context incidents.
 
-- Query validation step against information schema before execution.
-- Automatic metric definition cross-check against `docs/metric_contract.md`.
-- Cost estimator and hard stop above budget threshold.
-- Tool-level retries and timeout counters.
+3. **Low-value generic documentation at scale**  
+   - Risk: docs become verbose but unhelpful.  
+   - Detection: description-quality lint checks + weekly human-rated golden set.  
+   - Alert: acceptance rate decline, high post-edit distance, or repeated rejection for same column family.
 
-### Alerting
+**Operational telemetry**
+- Structured logs per decision (`run_id`, `model`, `column`, `action`, `confidence`, `review_outcome`).
+- Dashboard: acceptance rate, median review time, edit distance, and percent undocumented columns.
 
-- Slack/Page alerts for:
-  - repeated tool failures
-  - abnormal latency
-  - repeated low-confidence responses on same metric
+## D) Scope and One-Week v1 Plan
 
-## 5) Cost, Latency, Reliability Trade-Offs
+**In scope (v1)**
+- PR-triggered agent for changed models only.
+- Column-level draft descriptions in `schema.yml`.
+- Deterministic quality gate + CI validation.
+- Human approval required before merge.
+- Basic metrics dashboard (acceptance rate and median edit distance).
 
-- Use smaller/cheaper model for retrieval and SQL linting.
-- Use stronger model only for synthesis of complex multi-step questions.
-- Cache metric-definition answers aggressively.
-- Prefer deterministic SQL templates for standard growth questions.
+**Out of scope (v1)**
+- Autonomous merge/write to protected branches.
+- Cross-repo lineage inference outside dbt artifacts.
+- Deep business-context inference from Slack/Notion/Jira.
+- Multilingual documentation generation.
 
-## 6) Reflection: When Not to Use AI
-
-- Do not use AI for authoritative financial reporting sign-off.
-- Do not use AI for schema-breaking migration decisions without review.
-- Do not use AI when a static dashboard or documented metric already answers the question.
-
-## 7) Next Iteration
-
-- Add evaluation set of real analyst prompts.
-- Track precision/recall for SQL correctness and explanation accuracy.
-- Add policy tests for all high-risk tool calls.
+**Usefulness metrics**
+- 60%+ suggestion acceptance without edits by week 2.
+- 30% reduction in time-to-document updated docs after model changes.
+- <5% of changed columns left undocumented after PR merge.
