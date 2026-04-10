@@ -1,0 +1,75 @@
+name: pipeline-container
+
+on:
+  workflow_dispatch:
+    inputs:
+      execution_date:
+        description: "Optional UTC timestamp cutoff (YYYY-MM-DD HH:MM:SS)"
+        required: false
+        type: string
+      late_arrival_lookback_days:
+        description: "Incremental lookback window for event models"
+        required: false
+        default: "1"
+        type: string
+      period_lookback_days:
+        description: "Incremental lookback window for growth models"
+        required: false
+        default: "62"
+        type: string
+      dbt_full_refresh:
+        description: "Run dbt with --full-refresh"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  run-pipeline:
+    if: ${{ github.event_name != 'schedule' || vars.ENABLE_DAILY_CRON == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      BQ_DATASET: ${{ secrets.BQ_DATASET }}
+      BQ_TABLE: events
+      DBT_LOCATION: asia-southeast1
+      DBT_THREADS: 4
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      CSV_PATH: /app/data/event_stream.csv
+      LATE_ARRIVAL_LOOKBACK_DAYS: ${{ github.event.inputs.late_arrival_lookback_days || '1' }}
+      PERIOD_LOOKBACK_DAYS: ${{ github.event.inputs.period_lookback_days || '62' }}
+      DBT_FULL_REFRESH: ${{ github.event.inputs.dbt_full_refresh || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve execution timestamp
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "EXECUTION_DATE=$(date -u '+%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
+            echo "USE_CURRENT_EXECUTION_TS=true" >> "$GITHUB_ENV"
+          else
+            echo "EXECUTION_DATE=${{ github.event.inputs.execution_date }}" >> "$GITHUB_ENV"
+            echo "USE_CURRENT_EXECUTION_TS=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build pipeline image
+        run: docker build -t heymax-analytics-pipeline:latest .
+
+      - name: Run containerized pipeline
+        run: |
+          docker run --rm \
+            -e GCP_PROJECT \
+            -e BQ_DATASET \
+            -e BQ_TABLE \
+            -e DBT_LOCATION \
+            -e DBT_THREADS \
+            -e GCP_SA_KEY \
+            -e CSV_PATH \
+            -e EXECUTION_DATE \
+            -e USE_CURRENT_EXECUTION_TS \
+            -e LATE_ARRIVAL_LOOKBACK_DAYS \
+            -e PERIOD_LOOKBACK_DAYS \
+            -e DBT_FULL_REFRESH \
+            heymax-analytics-pipeline:latest
