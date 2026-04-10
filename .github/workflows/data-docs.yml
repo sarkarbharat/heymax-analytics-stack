@@ -1,0 +1,103 @@
+name: data-docs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: data-docs-pages
+  cancel-in-progress: true
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Write local docs dbt profile (DuckDB)
+        run: |
+          cat > profiles.yml <<'EOF'
+          heymax_analytics:
+            target: docs
+            outputs:
+              docs:
+                type: duckdb
+                path: docs.duckdb
+                schema: raw
+                threads: 4
+          EOF
+
+      - name: Create local source table for docs build
+        run: |
+          python - <<'PY'
+          import duckdb
+          con = duckdb.connect("docs.duckdb")
+          con.execute("create schema if not exists raw")
+          con.execute(
+              '''
+              create or replace table raw.events as
+              select * from (
+                  values
+                    ('2025-02-20 09:00:00', 'user_1', 'male', 'miles_earned', 'flight', 120, 'ios', 'google', 'SG', '2025-02-20 09:01:00'),
+                    ('2025-02-20 10:30:00', 'user_2', 'female', 'reward_search', 'search', 0, 'android', 'meta', 'SG', '2025-02-20 10:31:00'),
+                    ('2025-02-21 08:10:00', 'user_1', 'male', 'share', 'social', 0, 'web', 'direct', 'SG', '2025-02-21 08:11:00')
+              ) as t(event_time, user_id, gender, event_type, transaction_category, miles_amount, platform, utm_source, country, loaded_at)
+              '''
+          )
+          con.close()
+          PY
+
+      - name: Generate dbt docs site
+        env:
+          DBT_PROFILES_DIR: .
+          BQ_DATASET: raw
+        run: |
+          dbt compile --profiles-dir "${DBT_PROFILES_DIR}"
+          dbt docs generate --profiles-dir "${DBT_PROFILES_DIR}" --no-compile
+
+      - name: Stage docs for Pages
+        run: |
+          mkdir -p pages
+          cp target/index.html pages/
+          cp target/catalog.json pages/
+          cp target/manifest.json pages/
+          cp target/graph_summary.json pages/
+          cp target/semantic_manifest.json pages/ || true
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+  deploy-docs:
+    needs: build-docs
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -18,7 +18,10 @@ ifeq ($(DBT_FULL_REFRESH),true)
 DBT_FULL_REFRESH_ARG := --full-refresh
 endif
 
-.PHONY: install load dbt-precheck dbt-run dbt-run-incremental dbt-test pipeline docs clean backfill-full
+DBT_DOCS_HOST ?= 0.0.0.0
+DBT_DOCS_PORT ?= 8080
+
+.PHONY: install load dbt-precheck dbt-run dbt-run-incremental dbt-test pipeline docs docs-serve clean backfill-full
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -49,6 +52,10 @@ backfill-full:
 
 docs:
 	dbt docs generate --profiles-dir "$(DBT_PROFILES_DIR)"
+
+docs-serve:
+	dbt docs generate --profiles-dir "$(DBT_PROFILES_DIR)"
+	dbt docs serve --profiles-dir "$(DBT_PROFILES_DIR)" --host "$(DBT_DOCS_HOST)" --port "$(DBT_DOCS_PORT)"
 
 clean:
 	rm -rf target dbt_packages logs

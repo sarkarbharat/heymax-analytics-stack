@@ -175,6 +175,16 @@ Notes:
 - If `USE_CURRENT_EXECUTION_TS=true` and `EXECUTION_DATE` is empty, runtime uses current UTC timestamp.
 - Container entrypoint writes `profiles.yml` from env vars and runs `scripts/run_pipeline.sh`.
 
+### dbt docs UI (local)
+
+Generate and serve docs UI in one command:
+
+```bash
+make docs-serve
+```
+
+Then open `http://localhost:8080`.
+
 ## 7) Data Quality
 
 Built-in dbt schema tests:
@@ -321,7 +331,7 @@ Notes:
 
 ## 13) GitHub Actions Pipeline Runs
 
-Workflow: `.github/workflows/pipeline-container.yml`
+Workflow: `.github/workflows/data-pipeline.yml`
 
 - Manual run:
   - Trigger via `workflow_dispatch`
@@ -330,6 +340,16 @@ Workflow: `.github/workflows/pipeline-container.yml`
   - Daily cron is configured, but effectively disabled by default.
   - To enable schedule, set repository variable `ENABLE_DAILY_CRON=true`.
   - Scheduled runs auto-set `EXECUTION_DATE` to current UTC timestamp.
+  - Runtime pulls a prebuilt image from GHCR: `ghcr.io/<owner>/<repo>:pipeline-main`.
+
+CI image publishing workflow: `.github/workflows/ci.yml`
+
+- Push to `main`:
+  - Run `dbt compile` against a local DuckDB CI profile.
+  - Run source smoke tests on local dummy data (`source:*`, `tests/source/*`).
+  - Keep full warehouse-backed model/metric test suites as a staging-environment improvement (documented in `docs/data_quality_strategy.md`).
+  - After CI checks pass, build and publish container image to GHCR.
+  - Tags include immutable `sha-<commit>` and rolling `pipeline-main`.
 
 Required GitHub secrets for this workflow:
 
@@ -337,4 +357,16 @@ Required GitHub secrets for this workflow:
 - `BQ_DATASET`
 - `GCP_SA_KEY` (JSON key content)
 
+Recommended repository variable:
+
+- `BQ_LOCATION` (for example `asia-southeast1`, `US`, `EU`) so CI/runtime use the correct BigQuery location.
+
 If CSV is committed at `data/event_stream.csv`, no extra CSV secret is required.
+
+### Published dbt docs (GitHub Pages)
+
+Workflow: `.github/workflows/data-docs.yml`
+
+- On push to `main` (or manual dispatch), this workflow generates dbt docs using a local DuckDB profile and deploys the site to GitHub Pages.
+- After first successful deploy, open:
+  - `https://<your-github-username>.github.io/heymax-analytics-stack/`

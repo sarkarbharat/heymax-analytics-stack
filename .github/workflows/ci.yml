@@ -1,18 +1,19 @@
 name: ci
 
 on:
-  pull_request:
   push:
     branches: [main]
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   dbt-compile-and-test:
     runs-on: ubuntu-latest
     env:
       DBT_PROFILES_DIR: .
-      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
-      BQ_DATASET: ${{ secrets.BQ_DATASET }}
-      BQ_TABLE: events
+      BQ_DATASET: raw
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,28 +28,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Create service account key
-        if: ${{ secrets.GCP_SA_KEY != '' }}
-        run: |
-          echo '${{ secrets.GCP_SA_KEY }}' > sa.json
-
-      - name: Write dbt profile
+      - name: Write local CI dbt profile (DuckDB)
         run: |
           cat > profiles.yml <<'EOF'
           heymax_analytics:
-            target: dev
+            target: ci
             outputs:
-              dev:
-                type: bigquery
-                method: service-account
-                project: ${GCP_PROJECT}
-                dataset: ${BQ_DATASET}
-                keyfile: sa.json
-                location: asia-southeast1
-                priority: interactive
+              ci:
+                type: duckdb
+                path: ci.duckdb
+                schema: raw
                 threads: 4
-                timeout_seconds: 300
           EOF
+
+      - name: Create dummy local source table
+        run: |
+          python - <<'PY'
+          import duckdb
+          con = duckdb.connect("ci.duckdb")
+          con.execute("create schema if not exists raw")
+          con.execute(
+              '''
+              create or replace table raw.events as
+              select * from (
+                  values
+                    ('2025-02-20 09:00:00', 'user_1', 'male', 'miles_earned', 'flight', 120, 'ios', 'google', 'SG', '2025-02-20 09:01:00'),
+                    ('2025-02-20 10:30:00', 'user_2', 'female', 'reward_search', 'search', 0, 'android', 'meta', 'SG', '2025-02-20 10:31:00'),
+                    ('2025-02-21 08:10:00', 'user_1', 'male', 'share', 'social', 0, 'web', 'direct', 'SG', '2025-02-21 08:11:00')
+              ) as t(event_time, user_id, gender, event_type, transaction_category, miles_amount, platform, utm_source, country, loaded_at)
+              '''
+          )
+          con.close()
+          PY
 
       - name: dbt deps
         run: dbt deps --profiles-dir "${DBT_PROFILES_DIR}" || true
@@ -56,5 +67,42 @@ jobs:
       - name: dbt compile
         run: dbt compile --profiles-dir "${DBT_PROFILES_DIR}"
 
-      - name: dbt test
-        run: dbt test --profiles-dir "${DBT_PROFILES_DIR}"
+      - name: dbt source smoke tests on local dummy data
+        run: |
+          dbt test --profiles-dir "${DBT_PROFILES_DIR}" \
+            --select "source:* tests/source/*" \
+            --vars "{execution_date: '2025-02-20 00:00:00'}"
+
+  publish-container-image:
+    needs: dbt-compile-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=pipeline-main,enable={{is_default_branch}}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

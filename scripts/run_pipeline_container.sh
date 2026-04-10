@@ -60,6 +60,7 @@ heymax_analytics:
 EOF
 
 printf "%s" "${GCP_SA_KEY}" > /app/sa.json
+export GOOGLE_APPLICATION_CREDENTIALS="/app/sa.json"
 export DBT_PROFILES_DIR="/app"
 
 if [[ "${USE_CURRENT_EXECUTION_TS:-false}" == "true" && -z "${EXECUTION_DATE:-}" ]]; then

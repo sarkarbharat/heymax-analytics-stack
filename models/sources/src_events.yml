@@ -2,8 +2,8 @@ version: 2
 
 sources:
   - name: raw
-    database: "{{ env_var('GCP_PROJECT') }}"
-    schema: "{{ env_var('BQ_DATASET', 'heymax_analytics_raw') }}"
+    database: "{{ env_var('GCP_PROJECT', target.database) }}"
+    schema: "{{ env_var('BQ_DATASET', target.schema) }}"
     tables:
       - name: events
         description: Raw event stream loaded from CSV.

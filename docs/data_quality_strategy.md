@@ -55,3 +55,9 @@
 
 - Source freshness checks on `loaded_at` with threshold-based alerting.
 - Pipeline runtime and record-count trend checks for operational observability.
+
+### CI test environment hardening
+
+- Keep CI as compile-only in repository-level checks to avoid flaky warehouse state coupling.
+- Add a dedicated staging test environment (separate project/datasets, controlled test data) for automated `dbt test` execution.
+- Run source/model/metric test suites in that staging environment before publishing production runtime images.

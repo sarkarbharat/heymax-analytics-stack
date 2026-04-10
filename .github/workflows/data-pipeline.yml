@@ -1,4 +1,4 @@
-name: pipeline-container
+name: data-pipeline
 
 on:
   workflow_dispatch:
@@ -29,11 +29,15 @@ jobs:
   run-pipeline:
     if: ${{ github.event_name != 'schedule' || vars.ENABLE_DAILY_CRON == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     env:
+      PIPELINE_IMAGE: ghcr.io/${{ github.repository }}:pipeline-main
       GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
       BQ_DATASET: ${{ secrets.BQ_DATASET }}
       BQ_TABLE: events
-      DBT_LOCATION: asia-southeast1
+      DBT_LOCATION: ${{ vars.BQ_LOCATION }}
       DBT_THREADS: 4
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
       CSV_PATH: /app/data/event_stream.csv
@@ -41,8 +45,12 @@ jobs:
       PERIOD_LOOKBACK_DAYS: ${{ github.event.inputs.period_lookback_days || '62' }}
       DBT_FULL_REFRESH: ${{ github.event.inputs.dbt_full_refresh || 'false' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Resolve execution timestamp
         run: |
@@ -54,8 +62,8 @@ jobs:
             echo "USE_CURRENT_EXECUTION_TS=false" >> "$GITHUB_ENV"
           fi
 
-      - name: Build pipeline image
-        run: docker build -t heymax-analytics-pipeline:latest .
+      - name: Pull published pipeline image
+        run: docker pull "${PIPELINE_IMAGE}"
 
       - name: Run containerized pipeline
         run: |
@@ -72,4 +80,4 @@ jobs:
             -e LATE_ARRIVAL_LOOKBACK_DAYS \
             -e PERIOD_LOOKBACK_DAYS \
             -e DBT_FULL_REFRESH \
-            heymax-analytics-pipeline:latest
+            "${PIPELINE_IMAGE}"
