@@ -8,7 +8,7 @@ This repository implements the take-home assignment stack using BigQuery + dbt +
 - Transformation + tests: dbt Core (`dbt-bigquery`)
 - Ingestion: Python loader (`pandas`, `google-cloud-bigquery`)
 - Orchestration: `Makefile` / `scripts/run_pipeline.sh`
-- Dashboard output: notebook artifact in `analysis/growth_accounting_dashboard.ipynb`
+- Dashboard output: Looker Studio (primary), notebook kept as optional local artifact
 - CI: GitHub Actions workflow in `.github/workflows/ci.yml`
 
 ## 2) Repository Layout
@@ -18,9 +18,11 @@ This repository implements the take-home assignment stack using BigQuery + dbt +
 - `models/staging/`: cleaned event model (`stg_events`)
 - `models/marts/core/`: `dim_users`, `fct_events`
 - `models/marts/growth/`: user-period activity + growth accounting metrics
+- `models/marts/retention/`: cohort retention triangle models
+- `models/marts/engagement/`: engagement depth models
 - `tests/`: singular dbt tests
 - `docs/`: stack decision and metric contract
-- `analysis/`: notebook-based dashboard output
+- `analysis/`: optional notebook exploration artifact
 
 ## 3) Data Model
 
@@ -60,8 +62,11 @@ This repository implements the take-home assignment stack using BigQuery + dbt +
 - Materialization: incremental (`insert_overwrite`)
 - BigQuery storage:
   - Partitioned by `period_start`
-  - Clustered by `period_grain`
+  - Clustered by `country`, `platform`, `utm_source`, `period_grain`
+- Canonical growth mart used for both top-line and drilldown analysis.
+- Top-line aggregate can be queried by filtering to `country='all'`, `platform='all'`, `utm_source='all'`.
 - Columns:
+  - `country`, `platform`, `utm_source`
   - `active_users`
   - `new_users`
   - `retained_users`
@@ -70,11 +75,30 @@ This repository implements the take-home assignment stack using BigQuery + dbt +
 
 ### `int_user_period_activity`
 
-- Grain: one row per (`period_grain`, `period_start`, `user_id`)
+- Grain: one row per (`period_grain`, `period_start`, `country`, `platform`, `utm_source`, `user_id`)
 - Materialization: incremental (`insert_overwrite`)
 - BigQuery storage:
   - Partitioned by `period_start`
-  - Clustered by `user_id`, `period_grain`
+  - Clustered by `country`, `platform`, `utm_source`, `user_id`
+- Includes wide segmentation columns plus canonical aggregate rows (`all/all/all`)
+- Shared base for growth accounting and retention cohort marts
+
+### `fct_cohort_retention_triangle`
+
+- Grain: one row per (`cohort_grain`, `cohort_start`, `activity_period_start`, `period_index`, `country`, `platform`, `utm_source`)
+- Materialization: incremental (`insert_overwrite`)
+- Powers retention triangle/heatmap by segment and grain
+- Core outputs: `cohort_users`, `retained_users`, `retention_rate`
+
+### `fct_engagement_depth`
+
+- Grain: one row per (`period_grain`, `period_start`, `country`, `platform`, `utm_source`)
+- Materialization: incremental (`insert_overwrite`)
+- Adds depth metrics to complement growth accounting:
+  - `total_events`
+  - `events_per_active_user`
+  - `avg_miles_per_active_user`
+  - `power_user_share`
 
 ## 4) Growth Metric Definitions
 
@@ -245,8 +269,42 @@ Planned next (future scope):
 
 ## 8) Dashboard Output
 
+Primary dashboard: Looker Studio (connected to segmented marts in BigQuery marts).
+
+Required views:
+
+- Daily / Weekly / Monthly filters
+- New Users, Retained Users, Resurrected Users, Churned Users
+- Active users with definition notes aligned to `docs/metric_contract.md`
+
+Bonus views:
+
+- Cohort/triangle retention
+- Engagement depth (for example events per active user)
+
+Optional local fallback:
+
 - Notebook artifact: `analysis/growth_accounting_dashboard.ipynb`
-- Update `PROJECT_ID` and `MART_DATASET` in notebook, then run all cells.
+
+### Why Looker Studio
+
+- Analyst-friendly: low-code exploration and easy metric/chart iteration
+- Fast extension path: add metric in dbt model/view, refresh Looker source, visualize
+- Shareable output: reviewer can access a polished dashboard link quickly
+- AI-assisted iteration: analysts can use AI help to draft SQL metric logic/chart labels while keeping metric source-of-truth in dbt
+
+Looker quick-start for this repo:
+
+- Full guide: `docs/looker_studio_guide.md`
+- Checklist:
+  - Ensure growth/cohort/engagement marts are populated by running pipeline
+  - Connect Looker Studio to:
+    - `heymax_analytics_mart.fct_growth_accounting` (cards, trends, drilldowns)
+    - `heymax_analytics_mart.fct_cohort_retention_triangle` (triangle)
+    - `heymax_analytics_mart.fct_engagement_depth` (depth metrics)
+  - Add date filter + grain filter (`period_grain`)
+  - Add scorecards and trend chart for required growth metrics
+  - Add metric definition panel sourced from `docs/metric_contract.md`
 
 ## 9) Assumptions and Limitations
 
@@ -328,6 +386,7 @@ Notes:
 - PRD: `PRD.md`
 - Stack decision: `docs/stack_decision.md`
 - Metric contract: `docs/metric_contract.md`
+- Agentic AI best-practice playbook: `docs/agentic_ai_best_practices.md`
 - AI system design: `agent-design.md`
 - Reflection responses: `REFLECTION.md`
 
@@ -363,6 +422,7 @@ Recommended repository variable:
 
 - `BQ_LOCATION` (for example `asia-southeast1`, `US`, `EU`) so CI/runtime use the correct BigQuery location.
 - `DBT_TARGET_DATASET` (for example `heymax_analytics`) so dbt outputs land in `heymax_analytics_stg` / `heymax_analytics_mart`.
+- `LOOKER_STUDIO_DASHBOARD_URL` (optional) to print the dashboard link in Actions run summaries.
 
 If CSV is committed at `data/event_stream.csv`, no extra CSV secret is required.
 

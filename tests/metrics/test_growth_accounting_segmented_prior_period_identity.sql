@@ -7,7 +7,7 @@ with current_periods as (
         utm_source,
         retained_users,
         churned_users
-    from {{ ref('fct_growth_accounting_detail') }}
+    from {{ ref('fct_growth_accounting') }}
 ),
 prior_periods as (
     select
@@ -17,7 +17,7 @@ prior_periods as (
         platform,
         utm_source,
         active_users as prior_active_users
-    from {{ ref('fct_growth_accounting_detail') }}
+    from {{ ref('fct_growth_accounting') }}
 ),
 joined as (
     select

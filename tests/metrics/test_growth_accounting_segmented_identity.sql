@@ -8,5 +8,5 @@ select
     new_users,
     retained_users,
     resurrected_users
-from {{ ref('fct_growth_accounting_detail') }}
+from {{ ref('fct_growth_accounting') }}
 where active_users != (new_users + retained_users + resurrected_users)

@@ -28,36 +28,7 @@ models:
           - not_null
 
   - name: fct_growth_accounting
-    description: Aggregated growth accounting metrics by grain and period.
-    columns:
-      - name: period_grain
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['daily', 'weekly', 'monthly']
-                quote: true
-      - name: period_start
-        tests:
-          - not_null
-      - name: active_users
-        tests:
-          - not_null
-      - name: new_users
-        tests:
-          - not_null
-      - name: retained_users
-        tests:
-          - not_null
-      - name: resurrected_users
-        tests:
-          - not_null
-      - name: churned_users
-        tests:
-          - not_null
-
-  - name: fct_growth_accounting_detail
-    description: Canonical detailed growth accounting fact with explicit dimensions.
+    description: Canonical growth accounting fact by grain/period and segment dimensions.
     columns:
       - name: period_grain
         tests:
@@ -93,3 +64,4 @@ models:
       - name: churned_users
         tests:
           - not_null
+

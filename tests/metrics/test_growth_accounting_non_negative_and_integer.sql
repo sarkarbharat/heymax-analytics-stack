@@ -8,6 +8,8 @@ select
     churned_users
 from {{ ref('fct_growth_accounting') }}
 where
+    (country = 'all' and platform = 'all' and utm_source = 'all')
+    and (
     active_users < 0
     or new_users < 0
     or retained_users < 0
@@ -18,3 +20,4 @@ where
     or retained_users != cast(retained_users as int64)
     or resurrected_users != cast(resurrected_users as int64)
     or churned_users != cast(churned_users as int64)
+    )

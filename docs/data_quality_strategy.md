@@ -19,6 +19,20 @@
   - Ensures metric counts are non-negative whole numbers.
 - `test_user_period_classification_exclusive.sql`
   - Ensures a user-period is not simultaneously new/retained/resurrected.
+- `test_growth_accounting_segmented_identity.sql`
+  - Ensures segmented `active_users = new_users + retained_users + resurrected_users`.
+- `test_growth_accounting_segmented_prior_period_identity.sql`
+  - Ensures segmented `prior_active_users = retained_users + churned_users` (where prior exists).
+- `test_growth_accounting_segmented_non_negative_and_integer.sql`
+  - Ensures segmented growth counts are non-negative whole numbers.
+- `test_user_period_classification_exclusive.sql`
+  - Ensures classification exclusivity on the wide segmented `int_user_period_activity` base.
+- `test_cohort_retention_triangle_bounds.sql`
+  - Ensures cohort triangle constraints (`period_index >= 0`, `retained <= cohort`, `retention_rate in [0,1]`).
+- `test_cohort_retention_triangle_uniqueness.sql`
+  - Ensures one row per cohort/grain/period-index/segment combination.
+- `test_engagement_depth_bounds.sql`
+  - Ensures engagement depth bounds and ratio constraints (including `power_user_share in [0,1]`).
 
 ## Future scope checks
 

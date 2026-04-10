@@ -9,7 +9,7 @@ select
     retained_users,
     resurrected_users,
     churned_users
-from {{ ref('fct_growth_accounting_detail') }}
+from {{ ref('fct_growth_accounting') }}
 where
     active_users < 0
     or new_users < 0

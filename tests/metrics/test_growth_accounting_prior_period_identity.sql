@@ -5,6 +5,9 @@ with current_periods as (
         retained_users,
         churned_users
     from {{ ref('fct_growth_accounting') }}
+    where country = 'all'
+      and platform = 'all'
+      and utm_source = 'all'
 ),
 prior_periods as (
     select
@@ -12,6 +15,9 @@ prior_periods as (
         period_start,
         active_users as prior_active_users
     from {{ ref('fct_growth_accounting') }}
+    where country = 'all'
+      and platform = 'all'
+      and utm_source = 'all'
 ),
 joined as (
     select
