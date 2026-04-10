@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: fct_engagement_depth
+    description: Segmented engagement depth metrics by period and grain.
+    columns:
+      - name: period_grain
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['daily', 'weekly', 'monthly']
+                quote: true
+      - name: period_start
+        tests:
+          - not_null
+      - name: country
+        tests:
+          - not_null
+      - name: platform
+        tests:
+          - not_null
+      - name: utm_source
+        tests:
+          - not_null
+      - name: total_events
+        tests:
+          - not_null
+      - name: active_users
+        tests:
+          - not_null
+      - name: events_per_active_user
+        tests:
+          - not_null
+      - name: avg_miles_per_active_user
+        tests:
+          - not_null
+      - name: power_users
+        tests:
+          - not_null
+      - name: power_user_share
+        tests:
+          - not_null

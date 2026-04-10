@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: int_user_period_activity
-    description: User-level activity flags by period grain for growth accounting logic.
+    description: User-period activity flags by grain with wide segment columns.
     columns:
       - name: period_grain
         tests:
@@ -12,6 +12,15 @@ models:
                 values: ['daily', 'weekly', 'monthly']
                 quote: true
       - name: period_start
+        tests:
+          - not_null
+      - name: country
+        tests:
+          - not_null
+      - name: platform
+        tests:
+          - not_null
+      - name: utm_source
         tests:
           - not_null
       - name: user_id
@@ -29,6 +38,44 @@ models:
                 values: ['daily', 'weekly', 'monthly']
                 quote: true
       - name: period_start
+        tests:
+          - not_null
+      - name: active_users
+        tests:
+          - not_null
+      - name: new_users
+        tests:
+          - not_null
+      - name: retained_users
+        tests:
+          - not_null
+      - name: resurrected_users
+        tests:
+          - not_null
+      - name: churned_users
+        tests:
+          - not_null
+
+  - name: fct_growth_accounting_detail
+    description: Canonical detailed growth accounting fact with explicit dimensions.
+    columns:
+      - name: period_grain
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['daily', 'weekly', 'monthly']
+                quote: true
+      - name: period_start
+        tests:
+          - not_null
+      - name: country
+        tests:
+          - not_null
+      - name: platform
+        tests:
+          - not_null
+      - name: utm_source
         tests:
           - not_null
       - name: active_users
