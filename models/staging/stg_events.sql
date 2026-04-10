@@ -1,3 +1,16 @@
+{{
+    config(
+        materialized='incremental',
+        incremental_strategy='merge',
+        unique_key='event_id',
+        partition_by={"field": "event_date_utc", "data_type": "date"},
+        cluster_by=['user_id', 'event_type']
+    )
+}}
+
+{% set late_arrival_lookback_days = var('late_arrival_lookback_days', 1) | int %}
+{% set execution_date = var('execution_date', '') %}
+
 with src as (
     select
         event_time,
@@ -11,6 +24,19 @@ with src as (
         country,
         loaded_at
     from {{ source('raw', 'events') }}
+    where 1 = 1
+    {% if is_incremental() %}
+    and cast(event_time as timestamp) > (
+        select timestamp_sub(
+            coalesce(max(event_time_utc), timestamp('1970-01-01')),
+            interval {{ late_arrival_lookback_days }} day
+        )
+        from {{ this }}
+    )
+    {% endif %}
+    {% if execution_date | trim | length > 0 %}
+    and cast(event_time as timestamp) <= timestamp('{{ execution_date }}')
+    {% endif %}
 ),
 typed as (
     select
@@ -28,17 +54,13 @@ typed as (
 ),
 final as (
     select
-        to_hex(md5(concat(
-            coalesce(cast(event_time_utc as string), ''),
-            '|',
-            coalesce(user_id, ''),
-            '|',
-            coalesce(event_type, ''),
-            '|',
-            coalesce(cast(miles_amount as string), ''),
-            '|',
-            coalesce(platform, '')
-        ))) as event_id,
+        {{ generate_surrogate_key([
+            'event_time_utc',
+            'user_id',
+            'event_type',
+            'miles_amount',
+            'platform'
+        ]) }} as event_id,
         event_time_utc,
         user_id,
         gender,

@@ -26,9 +26,17 @@ models:
       - name: user_sk
         tests:
           - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_sk
       - name: user_id
         tests:
           - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
       - name: event_time_utc
         tests:
           - not_null

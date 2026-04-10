@@ -19,13 +19,15 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['miles_earned', 'miles_redeemed', 'like', 'share']
-              quote: true
+              arguments:
+                values: ['miles_earned', 'miles_redeemed', 'like', 'share', 'reward_search']
+                quote: true
       - name: platform
         tests:
           - accepted_values:
-              values: ['ios', 'android', 'web']
-              quote: true
+              arguments:
+                values: ['ios', 'android', 'web']
+                quote: true
       - name: country
         tests:
           - not_null

@@ -8,8 +8,9 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['daily', 'weekly', 'monthly']
-              quote: true
+              arguments:
+                values: ['daily', 'weekly', 'monthly']
+                quote: true
       - name: period_start
         tests:
           - not_null
@@ -24,8 +25,9 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['daily', 'weekly', 'monthly']
-              quote: true
+              arguments:
+                values: ['daily', 'weekly', 'monthly']
+                quote: true
       - name: period_start
         tests:
           - not_null

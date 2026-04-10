@@ -1,3 +1,15 @@
+{{
+    config(
+        materialized='incremental',
+        incremental_strategy='insert_overwrite',
+        partition_by={"field": "period_start", "data_type": "date"},
+        cluster_by=['period_grain']
+    )
+}}
+
+{% set execution_date = var('execution_date', '') %}
+{% set period_lookback_days = var('period_lookback_days', 62) | int %}
+
 with period_activity as (
     select * from {{ ref('int_user_period_activity') }}
 ),
@@ -51,3 +63,16 @@ from active_counts a
 left join churn_counts c
     on a.period_grain = c.period_grain
    and a.period_start = c.period_start
+where 1 = 1
+{% if is_incremental() %}
+and a.period_start > (
+    select date_sub(
+        coalesce(max(period_start), date('1970-01-01')),
+        interval {{ period_lookback_days }} day
+    )
+    from {{ this }}
+)
+{% endif %}
+{% if execution_date | trim | length > 0 %}
+and a.period_start <= date('{{ execution_date }}')
+{% endif %}

@@ -4,10 +4,12 @@ heymax_analytics:
     dev:
       type: bigquery
       method: service-account
-      project: your-gcp-project
+      project: heymax-analytics-stack
       dataset: heymax_analytics
-      keyfile: /absolute/path/to/service_account.json
+      keyfile: /Users/bharatsarkar/secrets/heymax-analytics-sa.json
       location: asia-southeast1
       priority: interactive
       threads: 4
       timeout_seconds: 300
+
+

@@ -1,3 +1,15 @@
+{{
+    config(
+        materialized='incremental',
+        incremental_strategy='insert_overwrite',
+        partition_by={"field": "period_start", "data_type": "date"},
+        cluster_by=['user_id', 'period_grain']
+    )
+}}
+
+{% set execution_date = var('execution_date', '') %}
+{% set period_lookback_days = var('period_lookback_days', 62) | int %}
+
 with user_periods as (
     select
         'daily' as period_grain,
@@ -56,21 +68,13 @@ final as (
         pe.first_active_period,
         pe.prior_period_start,
         pe.period_start = pe.first_active_period as is_new,
-        exists (
-            select 1
-            from user_periods p
-            where p.period_grain = pe.period_grain
-              and p.user_id = pe.user_id
-              and p.period_start = pe.prior_period_start
-        ) as was_active_prior_period,
-        exists (
-            select 1
-            from user_periods h
-            where h.period_grain = pe.period_grain
-              and h.user_id = pe.user_id
-              and h.period_start < pe.prior_period_start
-        ) as was_seen_before_prior_period
+        max(case when p.period_start = pe.prior_period_start then 1 else 0 end) = 1 as was_active_prior_period,
+        max(case when p.period_start < pe.prior_period_start then 1 else 0 end) = 1 as was_seen_before_prior_period
     from period_enriched pe
+    left join user_periods p
+        on pe.period_grain = p.period_grain
+       and pe.user_id = p.user_id
+    group by 1, 2, 3, 4, 5, 6
 )
 select
     period_grain,
@@ -84,3 +88,16 @@ select
     (not is_new and not was_active_prior_period and was_seen_before_prior_period) as is_resurrected,
     (not is_new and was_active_prior_period) as is_retained
 from final
+where 1 = 1
+{% if is_incremental() %}
+and period_start > (
+    select date_sub(
+        coalesce(max(period_start), date('1970-01-01')),
+        interval {{ period_lookback_days }} day
+    )
+    from {{ this }}
+)
+{% endif %}
+{% if execution_date | trim | length > 0 %}
+and period_start <= date('{{ execution_date }}')
+{% endif %}
